@@ -312,8 +312,8 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < 5; i++) {
         for(int j = 0; j < 7; j++) {
             if(i == 4 && j > 3) continue;
-            final_weights[i*5 + j] = (uint64_t) round(weights[i][j]*1000);
-            counter += final_weights[i*5 + j];
+            final_weights[i*7 + j] = (uint64_t) round(weights[i][j]*1000);
+            counter += final_weights[i*7 + j];
         }
     }
 
