@@ -47,7 +47,7 @@ int initialize_freq(uint64_t max_c1, uint64_t max_c2, uint64_t max_c3, uint32_t 
             }
 
             for (int k = 0; k < max_c3; k++) {
-                (*freq)[i][j][k] = (uint32_t *)malloc(2 * sizeof(uint32_t));
+                (*freq)[i][j][k] = (uint32_t *)calloc(2, sizeof(uint32_t));
                 if (!(*freq)[i][j][k]) {
                     for (int l = 0; l < k; l++) {
                         free((*freq)[i][j][l]);
