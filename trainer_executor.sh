@@ -1,7 +1,7 @@
 mkdir experiments
 
 # CM 0
-./bin/trainer imgs/int20040906_00421872_img0_u16be-1x4200x2154.raw 0 0.001 1 > experiments/INT_0_0-001.txt
+./bin/trainer imgs/int20040906_00421872_img0_u16be-1x4200x2154.raw 0 0.001 300 > experiments/INT_0_0-001.txt
 ./bin/trainer imgs/int20040906_00421872_img0_u16be-1x4200x2154.raw 0 0.01 300 > experiments/INT_0_0-01.txt
 ./bin/trainer imgs/int20040906_00421872_img0_u16be-1x4200x2154.raw 0 0.1 300 > experiments/INT_0_0-1.txt
 
