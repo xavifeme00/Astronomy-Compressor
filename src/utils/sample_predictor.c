@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 int16_t map_difference(int residual, int prediction, int min, int max) {
     int32_t theta = (prediction - min < max - prediction) ? (prediction - min) : (max - prediction);
