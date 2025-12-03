@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
     final_weights[31] += (int)(1000 - counter);
 
     for (int i = 0; i < 32; i++) {
-        fprintf(stdout, "%llu,", final_weights[i]);
+        fprintf(stdout, "%lu,", final_weights[i]);
     }
     fprintf(stdout, "\n");
 

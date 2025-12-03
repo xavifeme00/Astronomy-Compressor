@@ -7,7 +7,7 @@
 
 void get_context(int context, uint64_t ***image, uint64_t z, uint64_t y, uint64_t x, uint64_t max_x, uint64_t *c1, uint64_t *c2, uint64_t *c3, uint16_t bit) {
 
-    if (context == NO_CONTEXT || (y == 0 & x == 0)) {
+    if (context == NO_CONTEXT || (y == 0 && x == 0)) {
         *c1 = 0;
         *c2 = 0;
         *c3 = 0;
