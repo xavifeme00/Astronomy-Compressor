@@ -10,11 +10,11 @@
 #include "utils/arithmetic_coder.h"
 
 double weightsMatrix[5][7] = {
-    {0, 0, 0,    0,   0, 0, 0},
-    {0, 0, 0,    0,   0, 0, 0},
-    {0, 0, 0,    0,   0, 0, 0},
-    {0, 0, 0,  1./3, 1./3, 0, 0},
-    {0, 0, 0,  1./3,   0, 0, 0}
+    {0, 0, 0,  0,   0, 0, 0},
+    {0, 0, 0,  0,   0, 0, 0},
+    {0, 0, 0,  0,   0, 0, 0},
+    {0, 0, 0,  1.0/3,   1.0/3, 0, 0},
+    {0, 0, 0,  1.0/3,   0, 0, 0}
 };
 
 
@@ -109,8 +109,7 @@ float calculate_entropy(uint64_t ***residuals, Header header, uint16_t cm) {
     return total_entropy;
 }
 
-void numerical_gradient(uint64_t ***matrix, Header header, uint16_t cm, float entropy, double **weights, double **gradients) {
-    double eps = 1e-3;
+void numerical_gradient(uint64_t ***matrix, Header header, uint16_t cm, float entropy, double **weights, double **gradients, double eps) {
 
     for (int i = 0; i < 5; i++) {
         for (int j = 0; j < 7; j++) {
@@ -175,14 +174,15 @@ void numerical_gradient(uint64_t ***matrix, Header header, uint16_t cm, float en
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
-        fprintf(stderr, "Usage: %s <input_file> <cm> <lr> <epochs>\n", argv[0]);
+    if (argc != 6) {
+        fprintf(stderr, "Usage: %s <input_file> <cm> <lr> <eps> <epochs>\n", argv[0]);
         return 1;
     }
     char *input_file = argv[1];
     uint16_t cm = (uint16_t)atoi(argv[2]);
     float lr = (float)atof(argv[3]);
-    uint16_t epochs = (uint16_t)atoi(argv[4]);
+    float num_eps = (float)atof(argv[4]);
+    uint16_t epochs = (uint16_t)atoi(argv[5]);
 
     Header header;
     uint64_t ***matrix = NULL;
@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
             if (!gradients[i]) { perror("malloc"); return 1; }
         }
 
-        numerical_gradient(matrix, header, cm, entropy, weights, gradients);
+        numerical_gradient(matrix, header, cm, entropy, weights, gradients, num_eps);
 
         for (int i = 0; i < 5; i++) {
             for (int j = 0; j < 7; j++) {
