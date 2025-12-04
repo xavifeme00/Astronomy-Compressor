@@ -63,25 +63,45 @@ void *decode_bitplane_thread(void *arg) {
     return NULL;
 }
 
-int parse_int_array(const char *str, uint64_t *out, int expected) {
-    char *copy = strdup(str);
+int parse_int_weghts(const char *file, uint64_t *out, int expected) {
+    FILE *f = fopen(file, "r");
+    if (!f) {
+        perror("Error opening weights file");
+        return -1;
+    }
+
+    char buffer[4096];
+    if (!fgets(buffer, sizeof(buffer), f)) {
+        fclose(f);
+        fprintf(stderr, "Error reading weights file\n");
+        return -1;
+    }
+    fclose(f);
+
+    char *copy = strdup(buffer);
+    if (!copy) return -1;
+
     char *token = strtok(copy, ",");
     int count = 0;
 
     while (token != NULL) {
-        if (count >= expected) { free(copy); return -1; }
+        if (count >= expected) { 
+            free(copy); 
+            return -1; 
+        }
         out[count++] = (uint64_t)atoi(token);
         token = strtok(NULL, ",");
     }
 
     int sum = 0;
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < expected; i++) {
         sum += out[i];
     }
     if (sum != 1000) {
-        fprintf(stderr, "Error: sum of weights must be 1000\n");
+        fprintf(stderr, "Error: sum of weights must be 1000 (got %d)\n", sum);
+        free(copy);
         return -1;
-    } 
+    }
 
     free(copy);
     return (count == expected) ? 0 : -1;
@@ -89,7 +109,7 @@ int parse_int_array(const char *str, uint64_t *out, int expected) {
 
 int main(int argc, char *argv[]) {
     if (argc != 6) {
-        fprintf(stderr, "Usage: %s cmp/dec <input_file> <output_file> <cm> <32-int-array>\n", argv[0]);
+        fprintf(stderr, "Usage: %s cmp/dec <input_file> <output_file> <cm> <weights_file>\n", argv[0]);
         return 1;
     }
 
@@ -99,8 +119,8 @@ int main(int argc, char *argv[]) {
     uint16_t cm = (uint16_t)atoi(argv[4]);
 
     uint64_t weights[32];
-    char *array_str = argv[5];
-    if (parse_int_array(array_str, weights, 32) != 0) {
+    char *weights_file = argv[5];
+    if (parse_int_weghts(weights_file, weights, 32) != 0) {
         fprintf(stderr, "Error: expected 32 comma-separated integers\n");
         return 1;
     }
