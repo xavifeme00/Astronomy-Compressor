@@ -10,12 +10,18 @@
 #include "utils/arithmetic_coder.h"
 
 double weightsMatrix[5][7] = {
-    {0, 0, 0,  0,   0, 0, 0},
-    {0, 0, 0,  0,   0, 0, 0},
-    {0, 0, 0,  0,   0, 0, 0},
-    {0, 0, 0,  1.0/3,   1.0/3, 0, 0},
-    {0, 0, 0,  1.0/3,   0, 0, 0}
+    {0, 0, 0,      0,     0,  0, 0},
+    {0, 0, 0,      0,     0,  0, 0},
+    {0, 0, 0,      0,     0,  0, 0},
+    {0, 0, 0,  1.0/3, 1.0/3,  0, 0},
+    {0, 0, 0,  1.0/3,     0,  0, 0}
 };
+
+typedef struct {
+    Header header;
+    uint64_t ***matrix;
+    uint64_t ***residuals;
+} ImageSample;
 
 
 typedef struct {
@@ -67,7 +73,6 @@ void *entropy_thread(void *arg) {
 }
 
 
-
 void prediction(uint64_t ***matrix, Header header, uint64_t ***residuals, double **weights) {
     uint16_t min = 0;
         uint16_t max = (1 << header.bits) - 1;
@@ -109,7 +114,7 @@ float calculate_entropy(uint64_t ***residuals, Header header, uint16_t cm) {
     return total_entropy;
 }
 
-void numerical_gradient(uint64_t ***matrix, Header header, uint16_t cm, float entropy, double **weights, double **gradients, double eps) {
+void numerical_gradient(ImageSample img, uint16_t cm, float entropy, double **weights, double **gradients, double eps) {
 
     for (int i = 0; i < 5; i++) {
         for (int j = 0; j < 7; j++) {
@@ -147,16 +152,10 @@ void numerical_gradient(uint64_t ***matrix, Header header, uint16_t cm, float en
                 }
             }
 
-            uint64_t ***residuals = NULL;
+            prediction(img.matrix, img.header, img.residuals, weightsAux);
 
-            if (initialize_image_matrix(header.z, header.y, header.x, &residuals) != 0) {
-                fprintf(stderr, "Error initializing residualsMatrix\n");
-                return;
-            }
+            float entropy2 = calculate_entropy(img.residuals, img.header, cm);
 
-            prediction(matrix, header, residuals, weightsAux);
-            float entropy2 = calculate_entropy(residuals, header, cm);
-            
             gradients[i][j] = (entropy2 - entropy) / eps;
 
             for (int row = 0; row < 5; row++) {
@@ -164,45 +163,77 @@ void numerical_gradient(uint64_t ***matrix, Header header, uint16_t cm, float en
             }
             free(weightsAux);
             weightsAux = NULL;
-            free_image(residuals, header);
         }
     }
     
+}
 
+int load_full_dataset(const char *list_path, ImageSample **out_data, int *out_count) {
+    FILE *f = fopen(list_path, "r");
+    if (!f) return -1;
 
+    char line[4096];
+    int capacity = 32;
+    int count = 0;
 
+    ImageSample *data = malloc(capacity * sizeof(ImageSample));
+    if (!data) return -1;
+
+    while (fgets(line, sizeof(line), f)) {
+
+        line[strcspn(line, "\n")] = 0;
+        if (strlen(line) == 0) continue;
+
+        if (count == capacity) {
+            capacity *= 2;
+            data = realloc(data, capacity * sizeof(ImageSample));
+        }
+
+        if (header_parse_filename(line, &data[count].header) != 0) {
+            fprintf(stderr, "Error parsing header: %s\n", line);
+            return -1;
+        }
+
+        if (get_image_from_file(data[count].header, line, &data[count].matrix) != 0) {
+            fprintf(stderr, "Error reading image: %s\n", line);
+            return -1;
+        }
+
+        if (initialize_image_matrix(data[count].header.z,
+                                    data[count].header.y,
+                                    data[count].header.x,
+                                    &data[count].residuals) != 0) {
+            fprintf(stderr, "Error allocating residuals: %s\n", line);
+            return -1;
+        }
+
+        count++;
+    }
+
+    fclose(f);
+
+    *out_data = data;
+    *out_count = count;
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
     if (argc != 6) {
-        fprintf(stderr, "Usage: %s <input_file> <cm> <lr> <eps> <epochs>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <input_dataset> <cm> <lr> <eps> <epochs>\n", argv[0]);
         return 1;
     }
-    char *input_file = argv[1];
+    ImageSample *dataset = NULL;
+    int dataset_size = 0;
+
+    if (load_full_dataset(argv[1], &dataset, &dataset_size) != 0) {
+        fprintf(stderr, "Error loading dataset\n");
+        return 1;
+    }
     uint16_t cm = (uint16_t)atoi(argv[2]);
     float lr = (float)atof(argv[3]);
     float num_eps = (float)atof(argv[4]);
     uint16_t epochs = (uint16_t)atoi(argv[5]);
 
-    Header header;
-    uint64_t ***matrix = NULL;
-
-    if (header_parse_filename(input_file, &header) != 0) {
-        fprintf(stderr, "Error parsing header\n");
-        return 1;
-    }
-
-    if (get_image_from_file(header, input_file, &matrix) != 0) {
-        fprintf(stderr, "Error reading image data\n");
-        return 1;
-    }
-
-    uint64_t ***residuals = NULL;
-
-    if (initialize_image_matrix(header.z, header.y, header.x, &residuals) != 0) {
-        fprintf(stderr, "Error initializing residualsMatrix\n");
-        return 1;
-    }
 
     double **weights = malloc(5 * sizeof(double *));
     if (!weights) { perror("malloc"); return 1; }
@@ -251,57 +282,64 @@ int main(int argc, char *argv[]) {
     double eps = 1e-8;
 
     for(uint16_t epoch = 0; epoch <= epochs; epoch++) {
+         float avg_entropy = 0;
 
-        prediction(matrix, header, residuals, weights);
-        float entropy = calculate_entropy(residuals, header, cm);
+        for (int d = 0; d < dataset_size; d++) {
+            ImageSample *img = &dataset[d];
+            prediction(img->matrix, img->header, img->residuals, weights);
 
-        double **gradients = malloc(5 * sizeof(double *));
-        if (!gradients) { perror("malloc"); return 1; }
+            float entropy = calculate_entropy(img->residuals, img->header, cm);
+            avg_entropy += entropy;
 
-        for (int i = 0; i < 5; i++) {
-            gradients[i] = malloc(7 * sizeof(double));
-            if (!gradients[i]) { perror("malloc"); return 1; }
-        }
+            double **gradients = malloc(5 * sizeof(double *));
+            if (!gradients) { perror("malloc"); return 1; }
 
-        numerical_gradient(matrix, header, cm, entropy, weights, gradients, num_eps);
+            for (int i = 0; i < 5; i++) {
+                gradients[i] = malloc(7 * sizeof(double));
+                if (!gradients[i]) { perror("malloc"); return 1; }
+            }
 
-        for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 7; j++) {
-                if(i == 4 && j > 3) continue;
+            numerical_gradient(*img, cm, entropy, weights, gradients, num_eps);
 
-                mValue[i][j] = beta1 * mValue[i][j] + (1-beta1) * gradients[i][j];
-                vValue[i][j] = beta2 * vValue[i][j] + (1-beta2) * (gradients[i][j] * gradients[i][j]);
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 7; j++) {
+                    if(i == 4 && j > 3) continue;
 
-                double m_hat = mValue[i][j] / (1 - pow(beta1, epoch + 1));
-                double v_hat = vValue[i][j] / (1 - pow(beta2, epoch + 1));
+                    mValue[i][j] = beta1 * mValue[i][j] + (1-beta1) * gradients[i][j];
+                    vValue[i][j] = beta2 * vValue[i][j] + (1-beta2) * (gradients[i][j] * gradients[i][j]);
 
-                weights[i][j] -= lr * m_hat / (sqrt(v_hat) + eps);
+                    double m_hat = mValue[i][j] / (1 - pow(beta1, epoch + 1));
+                    double v_hat = vValue[i][j] / (1 - pow(beta2, epoch + 1));
 
-                if (weights[i][j] < 0.0) {
-                    weights[i][j] = 0.0;
+                    weights[i][j] -= lr * m_hat / (sqrt(v_hat) + eps);
+
+                    if (weights[i][j] < 0.0) {
+                        weights[i][j] = 0.0;
+                    }
                 }
             }
-        }
 
-        double sum = 0.0;
-        for (int row = 0; row < 5; row++) {
-            for (int col = 0; col < 7; col++) {
-                sum += weights[row][col];
+            double sum = 0.0;
+            for (int row = 0; row < 5; row++) {
+                for (int col = 0; col < 7; col++) {
+                    sum += weights[row][col];
+                }
             }
-        }
-        for (int row = 0; row < 5; row++) {
-            for (int col = 0; col < 7; col++) {
-                weights[row][col] /= sum;
+            for (int row = 0; row < 5; row++) {
+                for (int col = 0; col < 7; col++) {
+                    weights[row][col] /= sum;
+                }
             }
-        }
 
-        fprintf(stdout, "Epoch %i/%i,  Entropy = %f\n", epoch, epochs, entropy);
-
-        for (int i = 0; i < 5; i++) {
-            free(gradients[i]);
+            for (int i = 0; i < 5; i++) {
+                free(gradients[i]);
+            }
+            free(gradients);
+            gradients = NULL;
+            fprintf(stdout, "\tEntropy = %f\n", entropy);
+            
         }
-        free(gradients);
-        gradients = NULL;
+        fprintf(stdout, "Epoch %i/%i,  Entropy = %f\n", epoch, epochs, avg_entropy / dataset_size);
 
     }
 
@@ -324,6 +362,4 @@ int main(int argc, char *argv[]) {
     }
     fprintf(stdout, "\n");
 
-    free_image(residuals, header);
-    free_image(matrix, header);
 }
