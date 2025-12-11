@@ -9,12 +9,16 @@
 #include "utils/sample_predictor.h"
 #include "utils/arithmetic_coder.h"
 
-double weightsMatrix[5][9] = {
-    {1./40, 1./40, 1./40,  1./40,  1./40,  1./40, 1./40, 1./40, 1./40},
-    {1./40, 1./40, 1./40,  1./40,  1./40,  1./40, 1./40, 1./40, 1./40},
-    {1./40, 1./40, 1./40,  1./40,  1./40,  1./40, 1./40, 1./40, 1./40},
-    {1./40, 1./40, 1./40,  1./40,  1./40,  1./40, 1./40, 1./40, 1./40},
-    {1./40, 1./40, 1./40,  1./40,      0,      0,     0,     0,     0}
+double weightsMatrix[9][9] = {
+    {1./76, 1./76, 1./76,  1./76,  1./76,  1./76, 1./76, 1./76, 1./76},
+    {1./76, 1./76, 1./76,  1./76,  1./76,  1./76, 1./76, 1./76, 1./76},
+    {1./76, 1./76, 1./76,  1./76,  1./76,  1./76, 1./76, 1./76, 1./76},
+    {1./76, 1./76, 1./76,  1./76,  1./76,  1./76, 1./76, 1./76, 1./76},
+    {1./76, 1./76, 1./76,  1./76,  1./76,  1./76, 1./76, 1./76, 1./76},
+    {1./76, 1./76, 1./76,  1./76,  1./76,  1./76, 1./76, 1./76, 1./76},
+    {1./76, 1./76, 1./76,  1./76,  1./76,  1./76, 1./76, 1./76, 1./76},
+    {1./76, 1./76, 1./76,  1./76,  1./76,  1./76, 1./76, 1./76, 1./76},
+    {1./76, 1./76, 1./76,  1./76,      0,      0,     0,     0,     0}
 };
 
 typedef struct {
@@ -116,19 +120,19 @@ float calculate_entropy(uint64_t ***residuals, Header header, uint16_t cm) {
 
 void numerical_gradient(ImageSample img, uint16_t cm, float entropy, double **weights, double **gradients, double eps) {
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 9; i++) {
         for (int j = 0; j < 9; j++) {
-            if(i == 4 && j > 3) continue;
+            if(i == 8 && j > 3) continue;
 
-            double **weightsAux = malloc(5 * sizeof(double *));
+            double **weightsAux = malloc(9 * sizeof(double *));
             if (!weightsAux) { perror("malloc"); return; }
 
-            for (int row = 0; row < 5; row++) {
+            for (int row = 0; row < 9; row++) {
                 weightsAux[row] = malloc(9 * sizeof(double));
                 if (!weightsAux[row]) { perror("malloc"); return; }
             }
 
-            for (int row = 0; row < 5; row++) {
+            for (int row = 0; row < 9; row++) {
                 for (int col = 0; col < 9; col++) {
                     weightsAux[row][col] = weights[row][col];
                 }
@@ -141,24 +145,25 @@ void numerical_gradient(ImageSample img, uint16_t cm, float entropy, double **we
                 weightsAux[i][j] = 1.0;
 
             double sum = 0.0;
-            for (int row = 0; row < 5; row++) {
+            for (int row = 0; row < 9; row++) {
                 for (int col = 0; col < 9; col++) {
                     sum += weightsAux[row][col];
                 }
             }
-            for (int row = 0; row < 5; row++) {
+            for (int row = 0; row < 9; row++) {
                 for (int col = 0; col < 9; col++) {
                     weightsAux[row][col] /= sum;
                 }
             }
-
+            
             prediction(img.matrix, img.header, img.residuals, weightsAux);
+
 
             float entropy2 = calculate_entropy(img.residuals, img.header, cm);
 
             gradients[i][j] = (entropy2 - entropy) / eps;
 
-            for (int row = 0; row < 5; row++) {
+            for (int row = 0; row < 9; row++) {
                 free(weightsAux[row]);
             }
             free(weightsAux);
@@ -235,43 +240,43 @@ int main(int argc, char *argv[]) {
     uint16_t epochs = (uint16_t)atoi(argv[5]);
 
 
-    double **weights = malloc(5 * sizeof(double *));
+    double **weights = malloc(9 * sizeof(double *));
     if (!weights) { perror("malloc"); return 1; }
 
-    for (int row = 0; row < 5; row++) {
+    for (int row = 0; row < 9; row++) {
         weights[row] = malloc(9 * sizeof(double));
         if (!weights[row]) { perror("malloc"); return 1; }
     }
 
-    for (int row = 0; row < 5; row++) {
+    for (int row = 0; row < 9; row++) {
         for (int col = 0; col < 9; col++) {
             weights[row][col] = weightsMatrix[row][col];
         }
     }
     
-    double **mValue = malloc(5 * sizeof(double *));
+    double **mValue = malloc(9 * sizeof(double *));
     if (!mValue) { perror("malloc"); return 1; }
 
-    for (int row = 0; row < 5; row++) {
+    for (int row = 0; row < 9; row++) {
         mValue[row] = malloc(9 * sizeof(double));
         if (!mValue[row]) { perror("malloc"); return 1; }
     }
 
-    for (int row = 0; row < 5; row++) {
+    for (int row = 0; row < 9; row++) {
         for (int col = 0; col < 9; col++) {
             mValue[row][col] = 0;
         }
     }
 
-    double **vValue = malloc(5 * sizeof(double *));
+    double **vValue = malloc(9 * sizeof(double *));
     if (!vValue) { perror("malloc"); return 1; }
 
-    for (int row = 0; row < 5; row++) {
+    for (int row = 0; row < 9; row++) {
         vValue[row] = malloc(9 * sizeof(double));
         if (!vValue[row]) { perror("malloc"); return 1; }
     }
 
-    for (int row = 0; row < 5; row++) {
+    for (int row = 0; row < 9; row++) {
         for (int col = 0; col < 9; col++) {
             vValue[row][col] = 0;
         }
@@ -291,19 +296,20 @@ int main(int argc, char *argv[]) {
             float entropy = calculate_entropy(img->residuals, img->header, cm);
             avg_entropy += entropy;
 
-            double **gradients = malloc(5 * sizeof(double *));
+            double **gradients = malloc(9 * sizeof(double *));
             if (!gradients) { perror("malloc"); return 1; }
 
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 9; i++) {
                 gradients[i] = malloc(9 * sizeof(double));
                 if (!gradients[i]) { perror("malloc"); return 1; }
             }
 
             numerical_gradient(*img, cm, entropy, weights, gradients, num_eps);
 
-            for (int i = 0; i < 5; i++) {
+
+            for (int i = 0; i < 9; i++) {
                 for (int j = 0; j < 9; j++) {
-                    if(i == 4 && j > 3) continue;
+                    if(i == 8 && j > 3) continue;
 
                     mValue[i][j] = beta1 * mValue[i][j] + (1-beta1) * gradients[i][j];
                     vValue[i][j] = beta2 * vValue[i][j] + (1-beta2) * (gradients[i][j] * gradients[i][j]);
@@ -320,18 +326,18 @@ int main(int argc, char *argv[]) {
             }
 
             double sum = 0.0;
-            for (int row = 0; row < 5; row++) {
+            for (int row = 0; row < 9; row++) {
                 for (int col = 0; col < 9; col++) {
                     sum += weights[row][col];
                 }
             }
-            for (int row = 0; row < 5; row++) {
+            for (int row = 0; row < 9; row++) {
                 for (int col = 0; col < 9; col++) {
                     weights[row][col] /= sum;
                 }
             }
 
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 9; i++) {
                 free(gradients[i]);
             }
             free(gradients);
@@ -343,21 +349,21 @@ int main(int argc, char *argv[]) {
 
     }
 
-    uint64_t final_weights[40];
+    uint64_t final_weights[76];
 
 
     uint16_t counter = 0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 9; i++) {
         for(int j = 0; j < 9; j++) {
-            if(i == 4 && j > 3) continue;
+            if(i == 8 && j > 3) continue;
             final_weights[i*9 + j] = (uint64_t) round(weights[i][j]*1000);
             counter += final_weights[i*9 + j];
         }
     }
 
-    final_weights[39] += (int)(1000 - counter);
+    final_weights[75] += (int)(1000 - counter);
 
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 76; i++) {
         fprintf(stdout, "%lu,", final_weights[i]);
     }
     fprintf(stdout, "\n");
