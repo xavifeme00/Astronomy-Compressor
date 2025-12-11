@@ -9,12 +9,12 @@
 #include "utils/sample_predictor.h"
 #include "utils/arithmetic_coder.h"
 
-double weightsMatrix[5][7] = {
-    {0, 0, 0,      0,     0,  0, 0},
-    {0, 0, 0,      0,     0,  0, 0},
-    {0, 0, 0,      0,     0,  0, 0},
-    {0, 0, 0,  1.0/3, 1.0/3,  0, 0},
-    {0, 0, 0,  1.0/3,     0,  0, 0}
+double weightsMatrix[5][9] = {
+    {25., 25., 25.,  25.,  25.,  25., 25., 25., 25.},
+    {25., 25., 25.,  25.,  25.,  25., 25., 25., 25.},
+    {25., 25., 25.,  25.,  25.,  25., 25., 25., 25.},
+    {25., 25., 25.,  25.,  25.,  25., 25., 25., 25.},
+    {25., 25., 25.,  25.,    0,    0,   0,   0,  0}
 };
 
 typedef struct {
@@ -117,19 +117,19 @@ float calculate_entropy(uint64_t ***residuals, Header header, uint16_t cm) {
 void numerical_gradient(ImageSample img, uint16_t cm, float entropy, double **weights, double **gradients, double eps) {
 
     for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 7; j++) {
+        for (int j = 0; j < 9; j++) {
             if(i == 4 && j > 3) continue;
 
             double **weightsAux = malloc(5 * sizeof(double *));
             if (!weightsAux) { perror("malloc"); return; }
 
             for (int row = 0; row < 5; row++) {
-                weightsAux[row] = malloc(7 * sizeof(double));
+                weightsAux[row] = malloc(9 * sizeof(double));
                 if (!weightsAux[row]) { perror("malloc"); return; }
             }
 
             for (int row = 0; row < 5; row++) {
-                for (int col = 0; col < 7; col++) {
+                for (int col = 0; col < 9; col++) {
                     weightsAux[row][col] = weights[row][col];
                 }
             }
@@ -142,12 +142,12 @@ void numerical_gradient(ImageSample img, uint16_t cm, float entropy, double **we
 
             double sum = 0.0;
             for (int row = 0; row < 5; row++) {
-                for (int col = 0; col < 7; col++) {
+                for (int col = 0; col < 9; col++) {
                     sum += weightsAux[row][col];
                 }
             }
             for (int row = 0; row < 5; row++) {
-                for (int col = 0; col < 7; col++) {
+                for (int col = 0; col < 9; col++) {
                     weightsAux[row][col] /= sum;
                 }
             }
@@ -173,7 +173,7 @@ int load_full_dataset(const char *list_path, ImageSample **out_data, int *out_co
     if (!f) return -1;
 
     char line[4096];
-    int capacity = 32;
+    int capacity = 40;
     int count = 0;
 
     ImageSample *data = malloc(capacity * sizeof(ImageSample));
@@ -239,12 +239,12 @@ int main(int argc, char *argv[]) {
     if (!weights) { perror("malloc"); return 1; }
 
     for (int row = 0; row < 5; row++) {
-        weights[row] = malloc(7 * sizeof(double));
+        weights[row] = malloc(9 * sizeof(double));
         if (!weights[row]) { perror("malloc"); return 1; }
     }
 
     for (int row = 0; row < 5; row++) {
-        for (int col = 0; col < 7; col++) {
+        for (int col = 0; col < 9; col++) {
             weights[row][col] = weightsMatrix[row][col];
         }
     }
@@ -253,12 +253,12 @@ int main(int argc, char *argv[]) {
     if (!mValue) { perror("malloc"); return 1; }
 
     for (int row = 0; row < 5; row++) {
-        mValue[row] = malloc(7 * sizeof(double));
+        mValue[row] = malloc(9 * sizeof(double));
         if (!mValue[row]) { perror("malloc"); return 1; }
     }
 
     for (int row = 0; row < 5; row++) {
-        for (int col = 0; col < 7; col++) {
+        for (int col = 0; col < 9; col++) {
             mValue[row][col] = 0;
         }
     }
@@ -267,12 +267,12 @@ int main(int argc, char *argv[]) {
     if (!vValue) { perror("malloc"); return 1; }
 
     for (int row = 0; row < 5; row++) {
-        vValue[row] = malloc(7 * sizeof(double));
+        vValue[row] = malloc(9 * sizeof(double));
         if (!vValue[row]) { perror("malloc"); return 1; }
     }
 
     for (int row = 0; row < 5; row++) {
-        for (int col = 0; col < 7; col++) {
+        for (int col = 0; col < 9; col++) {
             vValue[row][col] = 0;
         }
     }
@@ -295,14 +295,14 @@ int main(int argc, char *argv[]) {
             if (!gradients) { perror("malloc"); return 1; }
 
             for (int i = 0; i < 5; i++) {
-                gradients[i] = malloc(7 * sizeof(double));
+                gradients[i] = malloc(9 * sizeof(double));
                 if (!gradients[i]) { perror("malloc"); return 1; }
             }
 
             numerical_gradient(*img, cm, entropy, weights, gradients, num_eps);
 
             for (int i = 0; i < 5; i++) {
-                for (int j = 0; j < 7; j++) {
+                for (int j = 0; j < 9; j++) {
                     if(i == 4 && j > 3) continue;
 
                     mValue[i][j] = beta1 * mValue[i][j] + (1-beta1) * gradients[i][j];
@@ -321,12 +321,12 @@ int main(int argc, char *argv[]) {
 
             double sum = 0.0;
             for (int row = 0; row < 5; row++) {
-                for (int col = 0; col < 7; col++) {
+                for (int col = 0; col < 9; col++) {
                     sum += weights[row][col];
                 }
             }
             for (int row = 0; row < 5; row++) {
-                for (int col = 0; col < 7; col++) {
+                for (int col = 0; col < 9; col++) {
                     weights[row][col] /= sum;
                 }
             }
@@ -343,21 +343,21 @@ int main(int argc, char *argv[]) {
 
     }
 
-    uint64_t final_weights[32];
+    uint64_t final_weights[40];
 
 
     uint16_t counter = 0;
     for (int i = 0; i < 5; i++) {
-        for(int j = 0; j < 7; j++) {
+        for(int j = 0; j < 9; j++) {
             if(i == 4 && j > 3) continue;
-            final_weights[i*7 + j] = (uint64_t) round(weights[i][j]*1000);
-            counter += final_weights[i*7 + j];
+            final_weights[i*9 + j] = (uint64_t) round(weights[i][j]*1000);
+            counter += final_weights[i*9 + j];
         }
     }
 
-    final_weights[31] += (int)(1000 - counter);
+    final_weights[39] += (int)(1000 - counter);
 
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 40; i++) {
         fprintf(stdout, "%lu,", final_weights[i]);
     }
     fprintf(stdout, "\n");

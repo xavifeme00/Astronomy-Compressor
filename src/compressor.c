@@ -118,9 +118,9 @@ int main(int argc, char *argv[]) {
     char *output_file = argv[3];
     uint16_t cm = (uint16_t)atoi(argv[4]);
 
-    uint64_t weights[32];
+    uint64_t weights[40];
     char *weights_file = argv[5];
-    if (parse_int_weghts(weights_file, weights, 32) != 0) {
+    if (parse_int_weghts(weights_file, weights, 40) != 0) {
         fprintf(stderr, "Error: expected 32 comma-separated integers\n");
         return 1;
     }
