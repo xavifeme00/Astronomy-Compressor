@@ -45,7 +45,7 @@ uint64_t predict(uint64_t ***inputData, int depth, int rows, int columns, int z,
     if (x >= 4 && y >= 8 && x < rows - 4) {
         for (int dy = 0; dy < 9; dy++) {
             for (int dx = 0; dx < 9; dx++) {
-                if(dx == 8 && dy > 3) continue;
+                if(dy == 8 && dx > 3) continue;
                 prediction += inputData[z][y - 8 + dy][x - 4 + dx] * w[dy*9 + dx];
             }
         }
@@ -139,7 +139,7 @@ uint64_t predict_train(uint64_t ***inputData, int depth, int rows, int columns, 
         double acc = 0.0f;
         for (int dy = 0; dy < 9; dy++) {
             for (int dx = 0; dx < 9; dx++) {
-                if(dx == 8 && dy > 3) continue;
+                if(dy == 8 && dx > 3) continue;
                 acc += (double)inputData[z][y - 8 + dy][x - 4 + dx] * weights[dy][dx];
             }
         }
